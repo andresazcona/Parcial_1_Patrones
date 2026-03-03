@@ -1,0 +1,14 @@
+# Helm
+charts/pedido-app/charts/*.tgz
+
+# Secrets – nunca commitear credenciales reales
+*.secret.yaml
+secrets/
+
+# OS
+.DS_Store
+*.swp
+
+# IDE
+.idea/
+.vscode/

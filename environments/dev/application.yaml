@@ -1,0 +1,49 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pedido-app-dev
+  namespace: argocd
+  labels:
+    environment: dev
+    app.kubernetes.io/name: pedido-app
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    # Reemplazar con la URL real del repositorio Git
+    repoURL: https://github.com/tu-org/pedido-app-helm.git
+    targetRevision: HEAD
+    path: charts/pedido-app
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-dev.yaml
+      # Credenciales de la BD se pasan como parámetros desde un Secret de ArgoCD
+      # o gestionadas via Sealed Secrets / External Secrets Operator
+      parameters:
+        - name: db.auth.password
+          value: "$argocd-pedido-dev-secrets:db-password"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pedido-dev
+
+  syncPolicy:
+    automated:
+      prune: true       # Elimina recursos que ya no están en Git
+      selfHeal: true    # Revierte cambios manuales en el clúster
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Revisión del estado de los recursos
+  revisionHistoryLimit: 5

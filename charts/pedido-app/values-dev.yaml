@@ -1,0 +1,33 @@
+# ── values-dev.yaml ──────────────────────────────────────────────────────────
+global:
+  environment: dev
+
+backend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/tu-org/pedido-backend   # Reemplazar con la imagen real
+    tag: "dev"
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  hpa:
+    minReplicas: 1
+    maxReplicas: 3
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/tu-org/pedido-frontend   # Reemplazar con la imagen real
+    tag: "dev"
+
+db:
+  primary:
+    persistence:
+      size: 2Gi
+
+ingress:
+  host: pedido-dev.local

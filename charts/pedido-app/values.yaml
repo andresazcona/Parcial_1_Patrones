@@ -1,0 +1,90 @@
+# ── Global ──────────────────────────────────────────────────────────────────
+global:
+  environment: dev
+
+# ── PostgreSQL (Bitnami) ─────────────────────────────────────────────────────
+db:
+  enabled: true
+  auth:
+    username: pedido_user
+    password: ""          # Overridden by Secret; do NOT put real value here
+    database: pedido_db
+    existingSecret: pedido-db-secret
+    secretKeys:
+      userPasswordKey: db-password
+      adminPasswordKey: db-admin-password
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: ""
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+
+# ── Backend ──────────────────────────────────────────────────────────────────
+backend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: ""          # Set per environment / values file
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  db:
+    host: "pedido-app-postgresql"
+    port: 5432
+    name: pedido_db
+    user: pedido_user
+    existingSecret: pedido-db-secret
+    secretKey: db-password
+  config:
+    extraEnv: {}
+
+# ── Frontend ─────────────────────────────────────────────────────────────────
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: ""          # Set per environment / values file
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+  config:
+    apiUrl: "http://pedido-app-backend:8080"
+
+# ── Ingress ──────────────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+  host: pedido-app.local
+  tls: []

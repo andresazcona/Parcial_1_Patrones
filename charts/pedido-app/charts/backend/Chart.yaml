@@ -1,0 +1,6 @@
+apiVersion: v2
+name: backend
+description: Backend subchart – Spring Boot API para gestión de pedidos
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

@@ -1,0 +1,46 @@
+# ── values-prod.yaml ─────────────────────────────────────────────────────────
+global:
+  environment: prod
+
+backend:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/tu-org/pedido-backend   # Reemplazar con la imagen real
+    tag: "prod"
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  hpa:
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 60
+
+frontend:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/tu-org/pedido-frontend   # Reemplazar con la imagen real
+    tag: "prod"
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+db:
+  primary:
+    persistence:
+      size: 20Gi
+      storageClass: "standard"
+
+ingress:
+  host: pedido-prod.local
+  tls:
+    - secretName: pedido-prod-tls
+      hosts:
+        - pedido-prod.local
