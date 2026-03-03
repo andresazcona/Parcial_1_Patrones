@@ -11,8 +11,8 @@ db:
     tag: "15-alpine"
     pullPolicy: IfNotPresent
   auth:
-    username: pedido_user
-    database: pedido_db
+    username: postgres
+    database: pedidosdb
   persistence:
     size: 5Gi
   storageClass: ""
@@ -50,8 +50,8 @@ backend:
   db:
     host: "pedido-app-db"
     port: 5432
-    name: pedido_db
-    user: pedido_user
+    name: pedidosdb
+    user: postgres
     existingSecret: pedido-db-secret
     secretKey: db-password
   config:
