@@ -6,6 +6,16 @@
 # =============================================================================
 set -euo pipefail
 
+# Fix: usar socket estándar de Docker (no Docker Desktop)
+export DOCKER_HOST=unix:///var/run/docker.sock
+
+# Fix: limpiar credential store de GPG/Desktop que bloquea el push
+cat > ~/.docker/config.json << 'DOCKEREOF'
+{
+  "auths": {}
+}
+DOCKEREOF
+
 ACR_NAME="${1:-andresazcona}"
 ACR_HOST="${ACR_NAME}.azurecr.io"
 IMAGES_DIR="$(dirname "$0")/images"

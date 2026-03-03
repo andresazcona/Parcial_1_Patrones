@@ -19,11 +19,11 @@ spec:
       valueFiles:
         - values.yaml
         - values-dev.yaml
-      # Credenciales de la BD se pasan como parámetros desde un Secret de ArgoCD
-      # o gestionadas via Sealed Secrets / External Secrets Operator
+      # El Secret pedido-db-secret se pre-crea en el namespace via kubectl
+      # (ver README sección 6 – Seguridad de credenciales)
       parameters:
-        - name: db.auth.password
-          value: "$argocd-pedido-dev-secrets:db-password"
+        - name: db.createSecret
+          value: "false"
 
   destination:
     server: https://kubernetes.default.svc

@@ -5,6 +5,7 @@ global:
 # ── PostgreSQL (Bitnami) ─────────────────────────────────────────────────────
 db:
   enabled: true
+  createSecret: false   # true = Helm crea el Secret; false = pre-creado via kubectl
   auth:
     username: pedido_user
     password: ""          # Overridden by Secret; do NOT put real value here
