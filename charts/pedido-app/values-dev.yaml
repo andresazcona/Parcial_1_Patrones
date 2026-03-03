@@ -5,8 +5,8 @@ global:
 backend:
   replicaCount: 1
   image:
-    repository: ghcr.io/tu-org/pedido-backend   # Reemplazar con la imagen real
-    tag: "dev"
+    repository: andresazcona.azurecr.io/pedido-backend
+    tag: "latest"
   resources:
     requests:
       cpu: "250m"
@@ -21,8 +21,8 @@ backend:
 frontend:
   replicaCount: 1
   image:
-    repository: ghcr.io/tu-org/pedido-frontend   # Reemplazar con la imagen real
-    tag: "dev"
+    repository: andresazcona.azurecr.io/pedido-frontend
+    tag: "latest"
 
 db:
   primary:
@@ -30,4 +30,4 @@ db:
       size: 2Gi
 
 ingress:
-  host: pedido-dev.local
+  host: pedido-dev.eastus.cloudapp.azure.com

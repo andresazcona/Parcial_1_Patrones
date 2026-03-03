@@ -12,3 +12,4 @@ secrets/
 # IDE
 .idea/
 .vscode/
+/images

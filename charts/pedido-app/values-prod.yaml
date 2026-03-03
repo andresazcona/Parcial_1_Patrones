@@ -5,8 +5,8 @@ global:
 backend:
   replicaCount: 2
   image:
-    repository: ghcr.io/tu-org/pedido-backend   # Reemplazar con la imagen real
-    tag: "prod"
+    repository: andresazcona.azurecr.io/pedido-backend
+    tag: "stable"
   resources:
     requests:
       cpu: "500m"
@@ -22,8 +22,8 @@ backend:
 frontend:
   replicaCount: 2
   image:
-    repository: ghcr.io/tu-org/pedido-frontend   # Reemplazar con la imagen real
-    tag: "prod"
+    repository: andresazcona.azurecr.io/pedido-frontend
+    tag: "stable"
   resources:
     requests:
       cpu: "200m"
@@ -36,11 +36,11 @@ db:
   primary:
     persistence:
       size: 20Gi
-      storageClass: "standard"
+      storageClass: "managed-csi"   # Azure Disk (AKS default)
 
 ingress:
-  host: pedido-prod.local
+  host: pedido-prod.eastus.cloudapp.azure.com
   tls:
     - secretName: pedido-prod-tls
       hosts:
-        - pedido-prod.local
+        - pedido-prod.eastus.cloudapp.azure.com
