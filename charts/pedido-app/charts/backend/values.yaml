@@ -26,8 +26,8 @@ hpa:
 db:
   host: "pedido-app-postgresql"
   port: 5432
-  name: pedidosdb
-  user: postgres
+  name: pedido_db
+  user: pedido_user
   existingSecret: pedido-db-secret
   secretKey: db-password
 
