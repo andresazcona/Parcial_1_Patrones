@@ -2,30 +2,27 @@
 global:
   environment: dev
 
-# ── PostgreSQL (Bitnami) ─────────────────────────────────────────────────────
+# ── PostgreSQL (imagen en ACR) ──────────────────────────────────────────────
 db:
   enabled: true
   createSecret: false   # true = Helm crea el Secret; false = pre-creado via kubectl
+  image:
+    repository: andresazcona.azurecr.io/postgresql
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
   auth:
     username: pedido_user
-    password: ""          # Overridden by Secret; do NOT put real value here
     database: pedido_db
-    existingSecret: pedido-db-secret
-    secretKeys:
-      userPasswordKey: db-password
-      adminPasswordKey: db-admin-password
-  primary:
-    persistence:
-      enabled: true
-      size: 5Gi
-      storageClass: ""
-    resources:
-      requests:
-        cpu: "250m"
-        memory: "256Mi"
-      limits:
-        cpu: "500m"
-        memory: "512Mi"
+  persistence:
+    size: 5Gi
+  storageClass: ""
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
 
 # ── Backend ──────────────────────────────────────────────────────────────────
 backend:
