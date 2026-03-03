@@ -6,7 +6,7 @@ backend:
   replicaCount: 2
   image:
     repository: andresazcona.azurecr.io/pedido-backend
-    tag: "stable"
+    tag: "latest"
   resources:
     requests:
       cpu: "500m"
@@ -23,7 +23,7 @@ frontend:
   replicaCount: 2
   image:
     repository: andresazcona.azurecr.io/pedido-frontend
-    tag: "stable"
+    tag: "latest"
   resources:
     requests:
       cpu: "200m"
