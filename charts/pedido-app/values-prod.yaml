@@ -33,10 +33,9 @@ frontend:
       memory: "512Mi"
 
 db:
-  primary:
-    persistence:
-      size: 20Gi
-      storageClass: "managed-csi"   # Azure Disk (AKS default)
+  persistence:
+    size: 20Gi
+  storageClass: "managed-csi"   # Azure Disk (AKS default)
 
 ingress:
   host: pedido-prod.eastus.cloudapp.azure.com

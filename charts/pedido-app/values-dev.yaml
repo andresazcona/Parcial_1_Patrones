@@ -25,9 +25,8 @@ frontend:
     tag: "latest"
 
 db:
-  primary:
-    persistence:
-      size: 2Gi
+  persistence:
+    size: 2Gi
 
 ingress:
   host: pedido-dev.eastus.cloudapp.azure.com

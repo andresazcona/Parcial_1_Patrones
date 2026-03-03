@@ -51,7 +51,7 @@ backend:
     maxReplicas: 5
     targetCPUUtilizationPercentage: 70
   db:
-    host: "pedido-app-postgresql"
+    host: "pedido-app-db"
     port: 5432
     name: pedido_db
     user: pedido_user
