@@ -1,276 +1,291 @@
-# Pedido-App – Helm Chart & ArgoCD GitOps
+# Parcial I — Patrones Arquitectónicos Avanzados
 
-Sistema de gestión de pedidos desplegado con Helm y ArgoCD.
+**Sistema de gestión de pedidos** desplegado con Helm + ArgoCD en Azure Kubernetes Service (AKS).
+
+---
+
+## Arquitectura general
+
+```
+Internet
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│  ingress-nginx  (IP: 20.121.172.186)    │
+│                                         │
+│  /api/*  ──────►  backend  :8080        │
+│  /       ──────►  frontend :80          │
+└─────────────────────────────────────────┘
+         │                    │
+         ▼                    ▼
+  Spring Boot API        Nginx + React
+         │
+         ▼
+    PostgreSQL :5432
+    (PVC persistente)
+```
+
+| Ambiente | Namespace     | Host Ingress                            |
+|----------|---------------|-----------------------------------------|
+| Dev      | `pedido-dev`  | `pedido-dev.eastus.cloudapp.azure.com`  |
+| Prod     | `pedido-prod` | `pedido-prod.eastus.cloudapp.azure.com` |
 
 ---
 
 ## Estructura del repositorio
 
 ```
-.
-├── charts/
-│   └── pedido-app/
-│       ├── Chart.yaml              # Chart principal + dependencia Bitnami PostgreSQL
-│       ├── values.yaml             # Valores por defecto
-│       ├── values-dev.yaml         # Overrides para desarrollo
-│       ├── values-prod.yaml        # Overrides para producción
-│       ├── templates/
-│       │   ├── _helpers.tpl        # Helpers compartidos
-│       │   ├── ingress.yaml        # Ingress único: /api/* → backend, / → frontend
-│       │   └── db-secret.yaml      # Secret de credenciales de PostgreSQL
-│       └── charts/
-│           ├── backend/            # Subchart Spring Boot API
-│           │   └── templates/
-│           │       ├── configmap.yaml
-│           │       ├── deployment.yaml
-│           │       ├── hpa.yaml
-│           │       └── service.yaml
-│           └── frontend/           # Subchart React/Vue/Angular
-│               └── templates/
-│                   ├── deployment.yaml
-│                   └── service.yaml
-└── environments/
-    ├── dev/
-    │   └── application.yaml        # ArgoCD Application – pedido-app-dev
-    └── prod/
-        └── application.yaml        # ArgoCD Application – pedido-app-prod
+charts/
+└── pedido-app/              ← Chart principal
+    ├── Chart.yaml
+    ├── values.yaml          ← Valores base (todos los ambientes)
+    ├── values-dev.yaml      ← Sobreescrituras para desarrollo
+    ├── values-prod.yaml     ← Sobreescrituras para producción
+    ├── templates/
+    │   ├── ingress.yaml     ← Ingress /api/* y /
+    │   ├── postgresql.yaml  ← StatefulSet + PVC + Service de PostgreSQL
+    │   └── db-secret.yaml   ← Secret de credenciales (opcional)
+    └── charts/
+        ├── backend/         ← Subchart Spring Boot
+        │   └── templates/
+        │       ├── deployment.yaml
+        │       ├── service.yaml
+        │       ├── configmap.yaml
+        │       └── hpa.yaml
+        └── frontend/        ← Subchart Nginx/React
+            └── templates/
+                ├── deployment.yaml
+                └── service.yaml
+
+environments/
+├── dev/
+│   └── application.yaml    ← ArgoCD Application para dev
+└── prod/
+    └── application.yaml    ← ArgoCD Application para prod
 ```
 
 ---
 
-## Pre-requisitos
+## Prerrequisitos
 
-| Herramienta | Versión mínima |
-|-------------|---------------|
-| Helm | 3.12+ |
-| kubectl | 1.28+ |
-| ArgoCD | 2.9+ |
-| Ingress controller (nginx) | cualquiera |
-| Metrics Server (para HPA) | 0.6+ |
+- `kubectl` configurado apuntando al cluster AKS
+- `helm` v3.x instalado
+- Acceso al ACR `andresazcona.azurecr.io` (o imágenes propias)
 
 ---
 
-## 1 – Instalación manual con Helm
+## 1. Instalación manual con Helm
 
-### 1.1 – Agregar el repositorio de Bitnami y actualizar dependencias
+### Paso 1 — Crear el namespace
 
 ```bash
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
-
-# Descargar la dependencia postgresql en charts/pedido-app/charts/
-helm dependency update charts/pedido-app
+kubectl create namespace pedido-dev
+# Para producción:
+kubectl create namespace pedido-prod
 ```
 
-### 1.2 – Instalar en entorno **dev**
+### Paso 2 — Crear el Secret de credenciales de BD
+
+El chart no expone contraseñas en texto plano. El Secret se pre-crea de forma segura:
 
 ```bash
-helm install pedido-app charts/pedido-app \
+kubectl create secret generic pedido-db-secret \
   --namespace pedido-dev \
-  --create-namespace \
-  -f charts/pedido-app/values.yaml \
-  -f charts/pedido-app/values-dev.yaml \
-  --set db.auth.password="<CONTRASEÑA_SEGURA>"
+  --from-literal=db-password=TuPasswordSegura
 ```
 
-> **Nunca** pases credenciales reales en flags de CI/CD visibles.
-> Usa un secreto externo o Sealed Secrets (ver sección de seguridad).
+> **¿Por qué fuera del chart?** Si el secret estuviera en `values.yaml`, la contraseña quedaría en el historial de Git. Al pre-crearlo con `kubectl`, Kubernetes lo cifra en etcd y nunca aparece en el repositorio.
 
-### 1.3 – Instalar en entorno **prod**
+### Paso 3 — Instalar el chart en dev
 
 ```bash
-helm install pedido-app charts/pedido-app \
+helm install pedido-app-dev ./charts/pedido-app \
+  --namespace pedido-dev \
+  --values charts/pedido-app/values.yaml \
+  --values charts/pedido-app/values-dev.yaml \
+  --set db.createSecret=false
+```
+
+### Paso 4 — Instalar el chart en prod
+
+```bash
+kubectl create namespace pedido-prod
+
+kubectl create secret generic pedido-db-secret \
   --namespace pedido-prod \
-  --create-namespace \
-  -f charts/pedido-app/values.yaml \
-  -f charts/pedido-app/values-prod.yaml \
-  --set db.auth.password="<CONTRASEÑA_PROD_SEGURA>"
+  --from-literal=db-password=TuPasswordSegura
+
+helm install pedido-app-prod ./charts/pedido-app \
+  --namespace pedido-prod \
+  --values charts/pedido-app/values.yaml \
+  --values charts/pedido-app/values-prod.yaml \
+  --set db.createSecret=false
 ```
 
-### 1.4 – Actualizar un release existente
+### Paso 5 — Verificar el despliegue
 
 ```bash
-helm upgrade pedido-app charts/pedido-app \
+kubectl get pods -n pedido-dev
+kubectl get ingress -n pedido-dev
+kubectl get hpa -n pedido-dev
+```
+
+### Upgrade y desinstalación
+
+```bash
+# Actualizar
+helm upgrade pedido-app-dev ./charts/pedido-app \
   --namespace pedido-dev \
-  -f charts/pedido-app/values.yaml \
-  -f charts/pedido-app/values-dev.yaml \
-  --set db.auth.password="<CONTRASEÑA_SEGURA>"
-```
+  --values charts/pedido-app/values.yaml \
+  --values charts/pedido-app/values-dev.yaml
 
-### 1.5 – Desinstalar
-
-```bash
-helm uninstall pedido-app --namespace pedido-dev
+# Desinstalar
+helm uninstall pedido-app-dev --namespace pedido-dev
 ```
 
 ---
 
-## 2 – Imágenes de los servicios
+## 2. Configuración de ArgoCD
 
-Actualiza los valores de imagen en el archivo correspondiente al entorno:
+ArgoCD gestiona la sincronización automática desde Git. Cuando se hace `git push`, ArgoCD detecta el cambio y lo aplica al cluster sin ningún comando manual.
 
-```yaml
-# values-dev.yaml
-backend:
-  image:
-    repository: ghcr.io/tu-org/pedido-backend
-    tag: "dev"
-
-frontend:
-  image:
-    repository: ghcr.io/tu-org/pedido-frontend
-    tag: "dev"
-```
-
----
-
-## 3 – Configuración de ArgoCD
-
-### 3.1 – Registrar el repositorio en ArgoCD
+### Aplicar las definiciones de Application
 
 ```bash
-argocd repo add https://github.com/tu-org/pedido-app-helm.git \
-  --username <GIT_USER> \
-  --password <GIT_TOKEN>
-```
-
-### 3.2 – Aplicar las definiciones de Application
-
-```bash
-# Dev
 kubectl apply -f environments/dev/application.yaml
-
-# Prod
 kubectl apply -f environments/prod/application.yaml
 ```
 
-ArgoCD detectará automáticamente el repositorio y sincronizará el estado del clúster
-con lo definido en Git.
-
-### 3.3 – Cómo funciona la sincronización automática
-
-```
-┌─────────────┐   push    ┌─────────────┐   poll/webhook  ┌──────────┐
-│  Developer  │ ───────▶  │  Git Repo   │ ───────────────▶ │  ArgoCD  │
-└─────────────┘           └─────────────┘                  └────┬─────┘
-                                                                 │ kubectl apply
-                                                                 ▼
-                                                          ┌─────────────┐
-                                                          │  Kubernetes │
-                                                          └─────────────┘
-```
-
-- **`automated.selfHeal: true`** → ArgoCD revierte cualquier cambio manual en el clúster.
-- **`automated.prune: true`** → Recursos eliminados de Git son eliminados del clúster.
-- **Polling** → ArgoCD revisa el repositorio cada 3 minutos por defecto.  
-  Para reducir la latencia, configura un webhook en GitHub/GitLab apuntando a:  
-  `https://<ARGOCD_HOST>/api/webhook`
-
-### 3.4 – Demostración GitOps (cambio de imagen sin comandos manuales)
-
-1. Edita `values-dev.yaml` y cambia el `tag` del backend:
-   ```yaml
-   backend:
-     image:
-       tag: "v1.1.0"
-   ```
-2. Haz commit y push:
-   ```bash
-   git add charts/pedido-app/values-dev.yaml
-   git commit -m "feat: actualizar backend a v1.1.0"
-   git push origin main
-   ```
-3. ArgoCD detecta el cambio (o es notificado via webhook) y aplica el rolling update
-   al Deployment del backend **sin ningún comando manual**.
-
----
-
-## 4 – Endpoints de acceso
-
-| Entorno | Frontend | Backend API |
-|---------|----------|-------------|
-| Dev  | `http://pedido-dev.local/`       | `http://pedido-dev.local/api/`  |
-| Prod | `https://pedido-prod.local/`     | `https://pedido-prod.local/api/` |
-
-> Asegúrate de agregar las entradas correspondientes en `/etc/hosts` para pruebas locales:
-> ```
-> <INGRESS_IP>  pedido-dev.local
-> <INGRESS_IP>  pedido-prod.local
-> ```
-
----
-
-## 5 – Recursos Kubernetes desplegados
-
-| Recurso | Nombre | Notas |
-|---------|--------|-------|
-| Deployment | `pedido-app-backend` | Spring Boot API |
-| Deployment | `pedido-app-frontend` | React/Vue/Angular |
-| Service (ClusterIP) | `pedido-app-backend` | Puerto 8080 |
-| Service (ClusterIP) | `pedido-app-frontend` | Puerto 80 |
-| Ingress | `pedido-app-ingress` | `/api/*` → backend, `/` → frontend |
-| PersistentVolumeClaim | gestionado por Bitnami chart | Datos de PostgreSQL |
-| ConfigMap | `pedido-app-backend-config` | URL de DB, variables no sensibles |
-| Secret | `pedido-db-secret` | Credenciales de PostgreSQL (base64) |
-| HorizontalPodAutoscaler | `pedido-app-backend-hpa` | CPU target 70% (dev), 60% (prod) |
-| StatefulSet | `pedido-app-postgresql` | Gestionado por Bitnami chart |
-
----
-
-## 6 – Seguridad de credenciales
-
-Las credenciales **nunca** se almacenan en texto plano en el repositorio.
-Opciones recomendadas:
-
-- **Sealed Secrets** (Bitnami): cifra el Secret con la clave pública del clúster.
-- **External Secrets Operator**: sincroniza desde HashiCorp Vault / AWS Secrets Manager.
-- **ArgoCD Vault Plugin**: inyecta secretos en tiempo de sincronización.
-
-Para desarrollo local/demo, pasa la contraseña via `--set` en la línea de comandos.
-
----
-
-## 7 – HPA y escalado del backend
-
-El backend cuenta con un `HorizontalPodAutoscaler` (autoscaling/v2):
-
-```yaml
-# dev
-hpa:
-  minReplicas: 1
-  maxReplicas: 3
-  targetCPUUtilizationPercentage: 70
-
-# prod
-hpa:
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 60
-```
-
-Requiere **Metrics Server** instalado en el clúster:
+### Acceder a la UI de ArgoCD
 
 ```bash
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl port-forward svc/argocd-server -n argocd 8080:80
+# Abrir: http://localhost:8080
+# Usuario: admin
+```
+
+Obtener contraseña inicial:
+```bash
+kubectl get secret argocd-initial-admin-secret -n argocd \
+  -o jsonpath='{.data.password}' | base64 -d && echo
+```
+
+### Qué hace cada Application
+
+Ambas apps apuntan al mismo repositorio Git pero con distintos `values`:
+
+```
+Repositorio: https://github.com/andresazcona/Parcial_1_Patrones.git
+Path:        charts/pedido-app
+
+Dev:  values.yaml + values-dev.yaml  →  namespace pedido-dev
+Prod: values.yaml + values-prod.yaml →  namespace pedido-prod
+```
+
+**Política de sync (automated):**
+- `prune: true` — elimina recursos que se borren en Git
+- `selfHeal: false` — no revierte cambios manuales de estado transitorio
+
+### Demostración GitOps
+
+```bash
+# 1. Editar el tag de imagen en Git
+sed -i 's/tag: "latest"/tag: "v1.1"/' charts/pedido-app/values-dev.yaml
+
+# 2. Push al repositorio
+git add charts/pedido-app/values-dev.yaml
+git commit -m "demo: nueva versión del backend"
+git push origin main
+
+# 3. En ~2 minutos ArgoCD lo aplica automáticamente. Verificar:
+kubectl rollout status deployment/pedido-app-dev-backend -n pedido-dev
 ```
 
 ---
 
-## 8 – Diagrama de arquitectura
+## 3. Endpoints de acceso
 
+### Dev
+
+| Recurso  | URL                                                              |
+|----------|------------------------------------------------------------------|
+| Frontend | `http://pedido-dev.eastus.cloudapp.azure.com`                   |
+| API      | `http://pedido-dev.eastus.cloudapp.azure.com/api/pedidos`        |
+
+### Prod
+
+| Recurso  | URL                                                               |
+|----------|-------------------------------------------------------------------|
+| Frontend | `http://pedido-prod.eastus.cloudapp.azure.com`                   |
+| API      | `http://pedido-prod.eastus.cloudapp.azure.com/api/pedidos`        |
+
+> **Nota:** Agregar al `/etc/hosts` para resolución local:
+> ```
+> 20.121.172.186  pedido-dev.eastus.cloudapp.azure.com
+> 20.121.172.186  pedido-prod.eastus.cloudapp.azure.com
+> ```
+
+### Ejemplos de uso de la API
+
+```bash
+# Listar pedidos
+curl http://pedido-dev.eastus.cloudapp.azure.com/api/pedidos
+
+# Crear un pedido
+curl -X POST http://pedido-dev.eastus.cloudapp.azure.com/api/pedidos \
+  -H "Content-Type: application/json" \
+  -d '{"producto": "Laptop", "cantidad": 1, "precio": 1500.00}'
+
+# Verificar persistencia: reiniciar el pod de BD y volver a listar
+kubectl delete pod pedido-app-dev-db-0 -n pedido-dev
+sleep 30
+curl http://pedido-dev.eastus.cloudapp.azure.com/api/pedidos
+# Los datos persisten gracias al PVC
 ```
-                         ┌─────────────────────────────────────┐
-                         │           Kubernetes Cluster          │
-                         │                                       │
- Usuario ──▶ Ingress ──▶ │  /api/*  ──▶  [Backend Service]      │
-                         │                      │                │
-                         │              [Backend Pods x N]       │
-                         │               (Spring Boot + HPA)     │
-                         │                      │                │
-                         │              [PostgreSQL StatefulSet] │
-                         │               (PVC con persistencia)  │
-                         │                                       │
-              ──▶        │  /       ──▶  [Frontend Service]      │
-                         │              [Frontend Pods x N]      │
-                         └─────────────────────────────────────┘
-```
+
+---
+
+## 4. Recursos Kubernetes por ambiente
+
+| Recurso                | Dev                               | Prod                               |
+|------------------------|-----------------------------------|------------------------------------|
+| Deployment backend     | 1 réplica                         | 2 réplicas                         |
+| Deployment frontend    | 1 réplica                         | 2 réplicas                         |
+| StatefulSet PostgreSQL | 1 réplica                         | 1 réplica                          |
+| PVC PostgreSQL         | 2 Gi                              | 20 Gi (managed-csi)                |
+| HPA backend            | min 1 / max 3 réplicas (CPU 70%)  | min 2 / max 10 réplicas (CPU 60%)  |
+| Ingress                | 1 (nginx, HTTP)                   | 1 (nginx, HTTPS + TLS)             |
+| Secret                 | `pedido-db-secret`                | `pedido-db-secret`                 |
+| ConfigMap              | `*-backend-config`                | `*-backend-config`                 |
+
+---
+
+## 5. Variables configurables (values.yaml)
+
+| Parámetro                        | Descripción                          | Default        |
+|----------------------------------|--------------------------------------|----------------|
+| `backend.image.repository`       | Imagen del backend                   | *(requerido)*  |
+| `backend.image.tag`              | Tag de la imagen                     | `latest`       |
+| `backend.replicaCount`           | Réplicas del backend                 | `1`            |
+| `backend.resources.requests.cpu` | CPU solicitada                       | `150m`         |
+| `backend.hpa.maxReplicas`        | Máximo de réplicas HPA               | `5`            |
+| `frontend.image.repository`      | Imagen del frontend                  | *(requerido)*  |
+| `frontend.replicaCount`          | Réplicas del frontend                | `1`            |
+| `db.auth.database`               | Nombre de la BD                      | `pedido_db`    |
+| `db.auth.username`               | Usuario de la BD                     | `pedido_user`  |
+| `db.persistence.size`            | Tamaño del PVC                       | `5Gi`          |
+| `ingress.host`                   | Hostname del Ingress                 | `pedido-app.local` |
+
+---
+
+## 6. Nota sobre PostgreSQL
+
+El enunciado indica usar el chart oficial de Bitnami como dependencia. En esta implementación se usa un **StatefulSet personalizado** con la imagen oficial `postgres:15-alpine` por la siguiente razón:
+
+> Las imágenes de Bitnami dejaron de publicarse en Docker Hub desde 2023. Al intentar hacer pull desde AKS (`bitnami/postgresql:16.x`), el cluster devuelve `manifest unknown`. La solución fue usar `postgres:15-alpine` oficial, empujarla al ACR propio y desplegarla mediante un StatefulSet declarado en el chart.
+
+La funcionalidad es **equivalente**: StatefulSet + PVC persistente + Service + Secret de credenciales.
+
+---
+
+*Para documentación técnica detallada ver [docs.md](docs.md)*
