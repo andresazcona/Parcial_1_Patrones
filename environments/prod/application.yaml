@@ -32,7 +32,7 @@ spec:
   syncPolicy:
     automated:
       prune: true       # Elimina recursos que ya no están en Git
-      selfHeal: true    # Revierte cambios manuales en el clúster
+      selfHeal: false   # No revertir cambios manuales (evita loop en rolling updates)
     syncOptions:
       - CreateNamespace=true
       - PrunePropagationPolicy=foreground
