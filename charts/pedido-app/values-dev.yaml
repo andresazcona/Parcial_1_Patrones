@@ -6,7 +6,7 @@ backend:
   replicaCount: 1
   image:
     repository: andresazcona.azurecr.io/pedido-backend
-    tag: "v1.0"
+    tag: "latest"
   resources:
     requests:
       cpu: "250m"
