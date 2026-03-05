@@ -1,4 +1,6 @@
-# Parcial I — Patrones Arquitectónicos Avanzados
+# Parcial I — Patrones Arquitectónicos Avanzados - 2026-1 - Universidad de la Sabana
+
+**Entregado por: Andres Azcona, Nicolas Muñoz y Laura Franco**
 
 **Sistema de gestión de pedidos** desplegado con Helm + ArgoCD en Azure Kubernetes Service (AKS).
 
@@ -6,24 +8,8 @@
 
 ## Arquitectura general
 
-```
-Internet
-    │
-    ▼
-┌─────────────────────────────────────────┐
-│  ingress-nginx  (IP: 20.121.172.186)    │
-│                                         │
-│  /api/*  ──────►  backend  :8080        │
-│  /       ──────►  frontend :80          │
-└─────────────────────────────────────────┘
-         │                    │
-         ▼                    ▼
-  Spring Boot API        Nginx + React
-         │
-         ▼
-    PostgreSQL :5432
-    (PVC persistente)
-```
+<img width="2131" height="1072" alt="Diagrama sin título drawio" src="https://github.com/user-attachments/assets/50aeb51b-4513-410e-8631-2fd4e9bab656" />
+
 
 | Ambiente | Namespace     | Host Ingress                            |
 |----------|---------------|-----------------------------------------|
