@@ -2,10 +2,10 @@
 global:
   environment: dev
 
-# ── PostgreSQL (imagen en ACR) ──────────────────────────────────────────────
+# ── PostgreSQL ──────────────────────────────────────────────
 db:
   enabled: true
-  createSecret: false   # true = Helm crea el Secret; false = pre-creado via kubectl
+  createSecret: false   
   image:
     repository: andresazcona.azurecr.io/postgresql
     tag: "15-alpine"
@@ -29,7 +29,7 @@ backend:
   enabled: true
   replicaCount: 1
   image:
-    repository: ""          # Set per environment / values file
+    repository: ""          
     tag: "latest"
     pullPolicy: IfNotPresent
   service:
@@ -37,7 +37,7 @@ backend:
     port: 8080
   resources:
     requests:
-      cpu: "150m"           # Bajo para permitir rolling updates en nodos Standard_B2s
+      cpu: "150m"           
       memory: "256Mi"
     limits:
       cpu: "400m"
@@ -62,7 +62,7 @@ frontend:
   enabled: true
   replicaCount: 1
   image:
-    repository: ""          # Set per environment / values file
+    repository: ""          
     tag: "latest"
     pullPolicy: IfNotPresent
   service:
