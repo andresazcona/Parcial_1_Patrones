@@ -28,34 +28,8 @@ El proyecto implementa una arquitectura de tres capas (base de datos, backend, f
 - **Helm**: empaqueta todos los recursos Kubernetes en un "chart" reutilizable y parametrizable.
 - **ArgoCD**: observa el repositorio Git y aplica automáticamente los cambios al cluster (GitOps).
 
-```
-┌─── Git Repository ────────────────────────────────────┐
-│  charts/pedido-app/   ← Chart de Helm                 │
-│  environments/        ← Definiciones de ArgoCD         │
-└───────────────────────────────────────────────────────┘
-         │ git push
-         ▼
-┌─── ArgoCD ────────────────────────────────────────────┐
-│  Detecta cambios cada ~3 min                          │
-│  Aplica helm template | kubectl apply automáticamente  │
-└───────────────────────────────────────────────────────┘
-         │ kubectl apply
-         ▼
-┌─── AKS Cluster ───────────────────────────────────────┐
-│  Namespace: pedido-dev                                │
-│  ┌──────────────────────────────────────────────────┐ │
-│  │ Ingress (nginx)                                  │ │
-│  │   /api/*  →  backend-svc :8080                   │ │
-│  │   /       →  frontend-svc :80                    │ │
-│  ├──────────────────────────────────────────────────┤ │
-│  │ backend (Spring Boot)  │  frontend (Nginx+React)  │ │
-│  ├──────────────────────────────────────────────────┤ │
-│  │ PostgreSQL (StatefulSet + PVC)                   │ │
-│  └──────────────────────────────────────────────────┘ │
-│                                                        │
-│  Namespace: pedido-prod  (misma estructura, más réplicas) │
-└───────────────────────────────────────────────────────┘
-```
+<img width="2131" height="1072" alt="Diagrama sin título drawio" src="https://github.com/user-attachments/assets/0e5ec951-7ff8-44c2-8669-1e1cefc90430" />
+
 
 ---
 
@@ -232,7 +206,7 @@ Esta anotación es crítica. Sin ella:
 
 Con `rewrite-target: /$2`:
 - El grupo `$2` captura todo lo que viene **después** de `/api/`
-- Request: `GET /api/pedidos` → Backend recibe: `GET /pedidos` ✅
+- Request: `GET /api/pedidos` → Backend recibe: `GET /pedidos` 
 
 ### Flujo de red
 
@@ -573,8 +547,8 @@ Release: pedido-app-prod →  Recursos: pedido-app-prod-backend, pedido-app-prod
 2. TCP connection al puerto 80 de 20.121.172.186
 
 3. nginx-ingress-controller recibe la request:
-   - Host: pedido-dev.eastus.cloudapp.azure.com  ✅ regla coincide
-   - Path: /api/pedidos                           ✅ patrón /api(/|$)(.*) coincide
+   - Host: pedido-dev.eastus.cloudapp.azure.com   regla coincide
+   - Path: /api/pedidos                           patrón /api(/|$)(.*) coincide
    - Rewrite: /api/pedidos → /pedidos             (grupo $2 = "pedidos")
 
 4. nginx hace proxy a Service pedido-app-dev-backend:8080
